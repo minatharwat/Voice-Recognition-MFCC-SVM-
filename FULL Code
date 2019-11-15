@@ -1,0 +1,100 @@
+import glob
+import os
+import soundfile as sf
+import sounddevice as sd
+from sklearn import metrics
+from sklearn import svm
+from tqdm import tqdm
+from joblib import dump, load
+import scipy.io.wavfile as wav
+from scipy.signal import butter, lfilter
+from python_speech_features import mfcc
+import numpy as np
+from pathlib import Path
+import librosa
+import os.path
+import time
+end_list = np.zeros(20)
+def butter_bandpass(lowcut, highcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    return b, a
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
+def mean_features(mfcc_features):
+	#make a numpy array with length the number of mfcc features
+	mean_features=np.zeros(len(mfcc_features[0]))
+	#for one input take the sum of all frames in a specific feature and divide them with the number of frames
+	for x in range(len(mfcc_features)):
+		for y in range(len(mfcc_features[x])):
+			mean_features[y]+=mfcc_features[x][y]
+	mean_features = (mean_features / len(mfcc_features))
+	return mean_features
+
+
+labeles=[]
+labeles_test=[]
+def extract_feature(file_name=None , numof_mfcc = 36 ):
+
+    X, sample_rate = sf.read(file_name, dtype='float32')
+    if X.ndim > 1: X = X[:,0]
+    X = X.T
+    data_cut , check = librosa.effects.trim(X,25)
+    lowcut = 100
+    highcut = 3500
+    filt = butter_bandpass_filter(data_cut, lowcut, highcut, sample_rate)
+    mfccs = np.mean(librosa.feature.mfcc(y=filt, sr=sample_rate, n_mfcc=numof_mfcc ).T,axis=0)
+
+    return mfccs
+
+
+def create_label(image_name):
+    word_label = image_name[0]
+    return int(word_label)
+
+TRAIN_DIR='E:/RDI/task1/data/train'
+Test_DIR='E:/RDI/task1/data/test'
+
+def create_train_data():
+    training_data = []
+    for file in tqdm(os.listdir(TRAIN_DIR)):
+        path = os.path.join(TRAIN_DIR, file)
+        training_data.append(extract_feature(path))
+        labeles.append(create_label(file))
+
+
+    return training_data
+
+def create_test_data():
+    testing_data = []
+    for f in tqdm(os.listdir(Test_DIR)):
+        path = os.path.join(Test_DIR, f)
+        testing_data.append(extract_feature(path))
+        labeles_test.append(create_label(f))
+    return testing_data
+
+train=create_train_data()
+test=create_test_data()
+train = np.array(train, np.float32)
+test = np.array(test, np.float32)
+labeles=np.array(labeles)
+labeles_test=np.array(labeles_test)
+clf = svm.SVC(kernel='linear')
+clf.fit(train, labeles)
+y_pred= clf.predict(test)
+print("Accuracy:", metrics.accuracy_score(labeles_test, y_pred))
+
+
+
+
+import operator
+str={}
+
+str.items()
+print(5)
